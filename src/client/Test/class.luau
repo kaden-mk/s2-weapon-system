@@ -1,0 +1,3 @@
+local Class = {}
+
+return Class
