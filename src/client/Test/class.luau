@@ -1,3 +1,0 @@
-local Class = {}
-
-return Class

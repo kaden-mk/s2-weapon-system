@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local World = require(ReplicatedStorage:WaitForChild("Shared").World)
 
-World.add(script.Parent, "Client/Test")
+World.add("src/client/Viewmodel")
+World.add("src/client/Weapons")
 
 World.init()

@@ -8,18 +8,48 @@ local controllers = {}
 local services = {}
 local initialized = false
 
+local map = require(script.Parent.Config.map)
+
+-- TODO: make the somehow be automatic??? and just improve the overall way to resolve
+--[[
+    Get the actual file location using a map
+    @param key - ex: "src/client"
+    @returns Instance
+]]
+local function resolve(key: string)
+    local config = map[key]
+    if not config then
+        error(`Unknown root: {key}`)
+    end
+
+    local service = game:GetService(config.service)
+    local root = service
+
+    for _, child_name in config.path do
+        if child_name == "LocalPlayer" then
+            root = game.Players.LocalPlayer
+        else
+            root = root:FindFirstChild(child_name)
+        end
+    end
+
+    return root
+end
+
 --[[
     Requires every module inside the specified folder location
-    @param root - The beginning of where to start the search
-    @param folder_location - A string set on where the location is, ex: "client/Classes/Weapons"
+    @param folder_location - A string set on where the location is, ex: "src/client/Weapons"
     @returns nil
 ]]
-function World.add(root: Instance, folder_location: string)
-    local locations = string.split(folder_location, "/")
-    local folder = root
+function World.add(folder_location: string)
+    local parts = string.split(folder_location, "/")
+    local key = table.concat({parts[1], parts[2]}, "/")
 
-    for _, location in locations do
-        folder = folder:WaitForChild(location)
+    local folder = resolve(key)
+
+    -- this should definitely be improved
+    for i = 3, #parts do
+        folder = folder:WaitForChild(parts[i])
     end
 
     for _, module in folder:GetChildren() do

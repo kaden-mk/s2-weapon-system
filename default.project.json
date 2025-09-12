@@ -25,6 +25,7 @@
         }
       }
     },
+    
     "SoundService": {
       "$properties": {
         "RespectFilteringEnabled": true
