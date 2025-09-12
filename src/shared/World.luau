@@ -6,7 +6,9 @@ local World = {}
 
 local controllers = {}
 local services = {}
+local singletons = {}
 local initialized = false
+local started = false
 
 local map = require(script.Parent.Config.map)
 
@@ -49,7 +51,7 @@ function World.add(folder_location: string)
 
     -- this should definitely be improved
     for i = 3, #parts do
-        folder = folder:WaitForChild(parts[i])
+        folder = folder:FindFirstChild(parts[i])
     end
 
     for _, module in folder:GetChildren() do
@@ -64,13 +66,16 @@ end
     @param controller - The specified controller in question
     @returns nil
 ]]
-function World.controller(controller: { any })
+function World.controller(controller: { name: string? })
     if RunService:IsServer() then
         warn("Controllers can only be created on the client!")
         return
     end
 
     controllers[controller] = controller
+    if controller.name then
+        singletons[controller.name] = controller
+    end
 end
 
 --[[
@@ -78,14 +83,20 @@ end
     @param service - The specified service in question
     @returns nil
 ]]
-function World.service(service: { any })
+function World.service(service: { name: string? })
     if RunService:IsClient() then
         warn("Services can only be created on the server!")
         return
     end
 
-
     services[service] = service
+    if service.name then
+        singletons[service.name] = service
+    end
+end
+
+function World.import(name: string)
+    return singletons[name]
 end
 
 --[[
@@ -107,13 +118,26 @@ function World.init()
     
     for _, module in module_list do
         if module.onInit then
-            module:onInit()
+            task.spawn(function()
+                module:onInit()
+            end)
         end
 
         if module[method] then
             to_update[module] = true
         end
     end
+
+    task.defer(function()
+        started = true
+        for _, module in module_list do
+            if module.onStart then
+                task.spawn(function()
+                    module:onStart()
+                end)
+            end
+        end
+    end)
 
     connection:Connect(function(deltaTime)
         for module in to_update do

@@ -9,6 +9,15 @@
       },
       "Packages": {
         "$path": "Packages"
+      },
+      "Assets": {
+        "$className": "Folder",
+        "Viewmodels": {
+          "$className": "Folder"
+        },
+        "Weapons": {
+          "$className": "Folder"
+        }
       }
     },
 
