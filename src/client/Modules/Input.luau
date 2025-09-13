@@ -78,12 +78,13 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 end)
 
 UserInputService.InputEnded:Connect(function(input)
-    local input_type = input.UserInputType == Enum.UserInputType.Keyboard and input.UserInputType or input.KeyCode
+    local input_type = input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode or input.UserInputType
 
     for _, data in inputs do
         if data.enabled == false then continue end
 
         local binding = findBinding(data.bindings, input_type) :: Binding
+
         if binding == false then continue end
         if binding.ends == false then continue end
 

@@ -15,5 +15,19 @@ return {
             Part1 = "Viewmodel/Right Arm",
             C0 = CFrame.new(0.298, -0.426, 1.755) * CFrame.Angles(math.rad(90), 0, 0)
         }
-    }
+    },
+
+    RPM = 600,
+    
+    Ammo = {
+        MagazineSize = 30,
+        MaxMagazineCount = 5,
+        Type = "5.56x45mm"
+    },
+
+    -- uses the first firemode
+    Firemodes = { "Auto", "Semi" },
+
+    EquipTime = 1,
+    UnequipTime = 1
 }

@@ -16,20 +16,35 @@ function WeaponManager.constructor(self: WeaponManager)
 
     self.viewmodelController = World.import("ViewmodelController") :: ViewmodelType.ViewmodelController
     self.weapon = WeaponClass.new("M4A1", self.viewmodelController) :: WeaponClass.Weapon
+    self.is_firing = false
 end
 
 function WeaponManager.onStart(self: WeaponManager)
-    self.weapon.model.Parent = self.viewmodelController.model
-    self.weapon.animations.Idle:Play()
+    self.weapon:equip()
 
     Input.bind("Weapon", "Reload", Enum.KeyCode.R, function()
-        self.weapon.animations.TacticalReload:Play()
+        self.weapon:reload()
     end, false)
+
+    Input.bind("Weapon", "Fire", Enum.UserInputType.MouseButton1, function(_, ended) -- TODO: add support for semi autos
+        self.is_firing = not ended
+        if ended == false then
+            self.weapon:fire()
+        end
+    end, true)
+end
+
+function WeaponManager.onRender(self: WeaponManager)
+    if self.is_firing == true and self.weapon.state.can_fire then
+        self.weapon:fire()
+    end
 end
 
 export type WeaponManager = typeof(WeaponManager) & {
     weapon: WeaponClass.Weapon,
-    viewmodelController: ViewmodelType.ViewmodelController
+    viewmodelController: ViewmodelType.ViewmodelController,
+
+    is_firing: boolean
 }
 
 World.controller(WeaponManager)
