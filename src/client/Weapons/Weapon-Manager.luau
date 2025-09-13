@@ -1,5 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterPlayer = game:GetService("StarterPlayer")
 
+local Input = require(StarterPlayer.StarterPlayerScripts.Client.Modules.Input)
 local World = require(ReplicatedStorage.Shared.World)
 local WeaponClass = require(script.Parent["Weapon-Class"])
 
@@ -8,19 +10,26 @@ local ViewmodelType = require(script.Parent.Parent.Viewmodel["Viewmodel-Controll
 local WeaponManager = { name = "WeaponController" }
 WeaponManager.__index = WeaponManager
 
-function WeaponManager.onInit(self: WeaponManager)
+
+function WeaponManager.constructor(self: WeaponManager)
+    Input.create("Weapon")
+
+    self.viewmodelController = World.import("ViewmodelController") :: ViewmodelType.ViewmodelController
+    self.weapon = WeaponClass.new("M4A1", self.viewmodelController) :: WeaponClass.Weapon
 end
 
 function WeaponManager.onStart(self: WeaponManager)
-    local viewmodelController = World.import("ViewmodelController") :: ViewmodelType.ViewmodelController
+    self.weapon.model.Parent = self.viewmodelController.model
+    self.weapon.animations.Idle:Play()
 
-    self.Weapon = WeaponClass.new("M4A1", viewmodelController) :: WeaponClass.Weapon
-    self.Weapon:rig()
-    self.Weapon.model.Parent = viewmodelController.model
+    Input.bind("Weapon", "Reload", Enum.KeyCode.R, function()
+        self.weapon.animations.TacticalReload:Play()
+    end, false)
 end
 
 export type WeaponManager = typeof(WeaponManager) & {
-    Weapon: WeaponClass.Weapon
+    weapon: WeaponClass.Weapon,
+    viewmodelController: ViewmodelType.ViewmodelController
 }
 
 World.controller(WeaponManager)

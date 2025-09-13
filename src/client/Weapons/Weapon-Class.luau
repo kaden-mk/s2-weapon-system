@@ -22,26 +22,51 @@ function Weapons.new(name: string, viewmodelController: ViewmodelController.View
     self.model = ReplicatedStorage.Assets.Weapons[name]:Clone()
     self.data = WeaponConfigsList[name]
     self.viewmodelController = viewmodelController
+    self.animations = {}
 
     Object.setPhysics(self.model, false, false)
+
+    self:initializeRig()
+    self:initializeAnimations()
 
     return self
 end
 
-function Weapons.rig(self: Weapon)
-    for _, rig_data in self.data.Rig do
-        local part0 = self.model:FindFirstChild(rig_data.Part0, true)
-        local part1 = self.viewmodelController.model:FindFirstChild(rig_data.Part1)
+function Weapons.initializeRig(self: Weapon)
+    for _, rigData in self.data.Rig do
+        local prefix0, name0 = string.match(rigData.Part0, "([^/]+)/(.+)")
+        local prefix1, name1 = string.match(rigData.Part1, "([^/]+)/(.+)")
+        
+        local part0 = (prefix0 == "Weapon" and self.model or self.viewmodelController.model):FindFirstChild(name0, true)
+        local part1 = (prefix1 == "Weapon" and self.model or self.viewmodelController.model):FindFirstChild(name1, true)
 
-        Object.rig(part0, part1, rig_data.C0, rig_data.C1)
+        Object.rig(part0, part1, rigData.C0, rigData.C1)
+    end
+end
+
+function Weapons.initializeAnimations(self: Weapon)
+    local priorities = {
+        TacticalReload = Enum.AnimationPriority.Action,
+        Idle = Enum.AnimationPriority.Idle
+    }
+
+    for _, animation in self.model.Animations:GetChildren() do
+        if not animation:IsA("Animation") then continue end
+
+        self.animations[animation.Name] = self.viewmodelController.animator:LoadAnimation(animation)
+
+        if priorities[animation.Name] then
+            self.animations[animation.Name].Priority = priorities[animation.Name]
+        end
     end
 end
 
 export type Weapon = typeof(Weapons) & {
     name: string,
-    model: Model,
+    model: Model & { Animations: Folder },
     data: { Rig: { any } },
-    viewmodelController: ViewmodelController.ViewmodelController
+    viewmodelController: ViewmodelController.ViewmodelController,
+    animations: { [string]: AnimationTrack }
 }
 
 return Weapons :: Weapon

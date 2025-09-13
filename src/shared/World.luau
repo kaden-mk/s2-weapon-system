@@ -4,11 +4,13 @@ local RunService = game:GetService("RunService")
 
 local World = {}
 
+-- bruh
 local controllers = {}
 local services = {}
 local singletons = {}
+local singletons_ready = {}
+local singletons_pending = {}
 local initialized = false
-local started = false
 
 local map = require(script.Parent.Config.map)
 
@@ -44,6 +46,8 @@ end
     @returns nil
 ]]
 function World.add(folder_location: string)
+    if string.find(script:GetFullName(), "StarterPlayerScripts") then return end
+        
     local parts = string.split(folder_location, "/")
     local key = table.concat({parts[1], parts[2]}, "/")
 
@@ -62,7 +66,7 @@ function World.add(folder_location: string)
 end
 
 --[[
-    Adds the specified controller to a list which allows you to use functions such as "onInit" & "onRender"
+    Adds the specified controller to a list which allows you to use functions such as "onStart" & "onRender"
     @param controller - The specified controller in question
     @returns nil
 ]]
@@ -72,6 +76,9 @@ function World.controller(controller: { name: string? })
         return
     end
 
+    if controllers[controller] then return end
+    if controller.name and singletons[controller.name] then return end
+
     controllers[controller] = controller
     if controller.name then
         singletons[controller.name] = controller
@@ -79,7 +86,7 @@ function World.controller(controller: { name: string? })
 end
 
 --[[
-    Adds the specified service to a list which allows you to use functions such as "onInit" & "onUpdate"
+    Adds the specified service to a list which allows you to use functions such as "onStart" & "onUpdate"
     @param service - The specified service in question
     @returns nil
 ]]
@@ -96,11 +103,21 @@ function World.service(service: { name: string? })
 end
 
 function World.import(name: string)
-    return singletons[name]
+    if singletons_ready[name] then
+        return singletons[name]
+    end
+
+    local thread = coroutine.running()
+    if not singletons_pending[name] then
+        singletons_pending[name] = {}
+    end
+
+    table.insert(singletons_pending[name], thread)
+    return coroutine.yield()
 end
 
 --[[
-    Initializes the world and runs onInit on every service/controller
+    Initializes the world and runs onStart on every service/controller
     @returns nil
 ]]
 function World.init()
@@ -117,27 +134,30 @@ function World.init()
     local method = is_client and "onRender" or "onUpdate"
     
     for _, module in module_list do
-        if module.onInit then
-            task.spawn(function()
-                module:onInit()
-            end)
-        end
+        task.spawn(function()
+            if module.constructor then
+                module:constructor()
+            end
+
+            if module.onStart then
+                module:onStart()
+            end
+
+            if module.name then
+                singletons_ready[module.name] = true
+                if singletons_pending[module.name] then
+                    for _, thread in singletons_pending[module.name] do
+                        coroutine.resume(thread, singletons[module.name])
+                    end
+                    singletons_pending[module.name] = nil
+                end
+            end
+        end)
 
         if module[method] then
             to_update[module] = true
         end
     end
-
-    task.defer(function()
-        started = true
-        for _, module in module_list do
-            if module.onStart then
-                task.spawn(function()
-                    module:onStart()
-                end)
-            end
-        end
-    end)
 
     connection:Connect(function(deltaTime)
         for module in to_update do
