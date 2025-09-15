@@ -6,16 +6,18 @@ local World = require(ReplicatedStorage.Shared.World)
 local WeaponClass = require(script.Parent["Weapon-Class"])
 
 local ViewmodelType = require(script.Parent.Parent.Viewmodel["Viewmodel-Controller"])
+local PlayerType = require(script.Parent.Parent.Player["Player-Controller"])
 
 local WeaponManager = { name = "WeaponController" }
 WeaponManager.__index = WeaponManager
 
-
 function WeaponManager.constructor(self: WeaponManager)
     Input.create("Weapon")
 
-    self.viewmodelController = World.import("ViewmodelController") :: ViewmodelType.ViewmodelController
-    self.weapon = WeaponClass.new("M4A1", self.viewmodelController) :: WeaponClass.Weapon
+    self.viewmodel_controller = World.import("ViewmodelController") :: ViewmodelType.ViewmodelController
+    self.player_controller = World.import("PlayerController")
+
+    self.weapon = WeaponClass.new(self.player_controller.replicated_player_state.weapons().primary(), self.viewmodel_controller) :: WeaponClass.Weapon
     self.is_firing = false
 end
 
@@ -42,7 +44,8 @@ end
 
 export type WeaponManager = typeof(WeaponManager) & {
     weapon: WeaponClass.Weapon,
-    viewmodelController: ViewmodelType.ViewmodelController,
+    viewmodel_controller: ViewmodelType.ViewmodelController,
+    player_controller: PlayerType.PlayerController,
 
     is_firing: boolean
 }

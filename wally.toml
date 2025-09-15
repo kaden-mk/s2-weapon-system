@@ -6,5 +6,7 @@ realm = "shared"
 
 [dependencies]
 Promise = "evaera/promise@4.0.0"
+Charm = "littensy/charm@0.10.0"
+CharmSync = "littensy/charm-sync@0.3.0"
 
 [server-dependencies]

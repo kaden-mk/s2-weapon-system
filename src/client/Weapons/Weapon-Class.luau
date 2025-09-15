@@ -3,6 +3,7 @@ local StarterPlayer = game:GetService("StarterPlayer")
 
 local ViewmodelController = require(StarterPlayer.StarterPlayerScripts.Client.Viewmodel["Viewmodel-Controller"])
 local Object = require(ReplicatedStorage.Shared.Modules.Object)
+local Network = require(ReplicatedStorage.Shared.network.client)
 
 local WeaponConfigsList = {}
 for _, config in ReplicatedStorage.Shared.Config.Weapons:GetChildren() do
@@ -14,14 +15,15 @@ end
 local Weapons = {}
 Weapons.__index = Weapons
 
-function Weapons.new(name: string, viewmodelController: ViewmodelController.ViewmodelController): Weapon | nil
-    if not WeaponConfigsList[name] then return nil end
+function Weapons.new(name: string, viewmodel_controller: ViewmodelController.ViewmodelController): Weapon | nil
+    if Network.CreateWeapon.Call(name) == "fail" then return end
+    if not WeaponConfigsList[name] then return end
 
     local self = setmetatable({}, Weapons)
     self.name = name
     self.model = ReplicatedStorage.Assets.Weapons[name]:Clone()
     self.data = WeaponConfigsList[name]
-    self.viewmodelController = viewmodelController
+    self.viewmodel_controller = viewmodel_controller
     self.animations = {}
     self.firerate = 1 / (self.data.RPM / 60)
 
@@ -40,12 +42,12 @@ function Weapons.new(name: string, viewmodelController: ViewmodelController.View
 end
 
 function Weapons.initializeRig(self: Weapon)
-    for _, rigData in self.data.Rig do
+    for _, rigData in self.data.Rig.Viewmodel do
         local prefix0, name0 = string.match(rigData.Part0, "([^/]+)/(.+)")
         local prefix1, name1 = string.match(rigData.Part1, "([^/]+)/(.+)")
         
-        local part0 = (prefix0 == "Weapon" and self.model or self.viewmodelController.model):FindFirstChild(name0)
-        local part1 = (prefix1 == "Weapon" and self.model or self.viewmodelController.model):FindFirstChild(name1)
+        local part0 = (prefix0 == "Weapon" and self.model or self.viewmodel_controller.model):FindFirstChild(name0)
+        local part1 = (prefix1 == "Weapon" and self.model or self.viewmodel_controller.model):FindFirstChild(name1)
 
         Object.rig(part0, part1, rigData.C0, rigData.C1)
     end
@@ -63,7 +65,7 @@ function Weapons.initializeAnimations(self: Weapon)
     for _, animation in self.model.Animations:GetChildren() do
         if not animation:IsA("Animation") then continue end
 
-        self.animations[animation.Name] = self.viewmodelController.animator:LoadAnimation(animation)
+        self.animations[animation.Name] = self.viewmodel_controller.animator:LoadAnimation(animation)
 
         if priorities[animation.Name] then
             self.animations[animation.Name].Priority = priorities[animation.Name]
@@ -81,7 +83,7 @@ function Weapons.equip(self: Weapon)
         self.state.equipped = true
     end)
 
-    self.model.Parent = self.viewmodelController.model
+    self.model.Parent = self.viewmodel_controller.model
 
     self.animations.Idle:Play()
     self.animations.Equip:Play()
@@ -110,8 +112,8 @@ end
 export type Weapon = typeof(Weapons) & {
     name: string,
     model: Model & { Animations: Folder },
-    data: { Rig: { any }, EquipTime: number, RPM: number }, -- TODO: improve ts
-    viewmodelController: ViewmodelController.ViewmodelController,
+    data: { Rig: { Viewmodel: { any }, WorldModel: { any } }, EquipTime: number, RPM: number }, -- TODO: improve ts
+    viewmodel_controller: ViewmodelController.ViewmodelController,
     animations: { [string]: AnimationTrack },
 
     state: {

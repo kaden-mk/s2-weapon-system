@@ -1,0 +1,51 @@
+-- Handler for the weapon class, manages players and which weapons they have (maybe leave this to the player service?)
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
+
+local PlayerService = require(ServerScriptService.Server.Players["Player-Service"])
+local WeaponClass = require(script.Parent["Weapon-Class"])
+local World = require(ReplicatedStorage.Shared.World)
+local Network = require(ReplicatedStorage.Shared.network.server)
+
+local weapon_player_list = {}
+
+local WeaponManager = { name = "WeaponService" }
+WeaponManager.__index = WeaponManager
+
+function WeaponManager.constructor(self: WeaponManager)
+    self.player_service = World.import("PlayerService")
+end
+
+function WeaponManager.onStart(self: WeaponManager)
+    Network.CreateWeapon.SetCallback(function(player, name)
+        if not weapon_player_list[player] then
+            weapon_player_list[player] = {}
+        end
+
+        if weapon_player_list[player][name] then return "fail" end
+
+        local player_data = self.player_service:getPlayer(player)
+        if not player_data then return "fail" end
+
+        local weapons = player_data.replicated_player_state.weapons()
+        
+        -- should definitely improve this
+        if weapons.primary() ~= name and weapons.secondary() ~= name then return "fail" end
+
+        local weapon = WeaponClass.new(name, player_data)
+
+        if not weapon then return "fail" end
+
+        weapon_player_list[player][name] = weapon
+
+        return "success"
+    end)
+end
+
+export type WeaponManager = typeof(WeaponManager) & {
+    player_service: PlayerService.PlayerService
+}
+
+World.service(WeaponManager)
+return WeaponManager
