@@ -42,7 +42,7 @@ function WeaponManager.onStart(self: WeaponManager)
 end
 
 function WeaponManager.onRender(self: WeaponManager)
-    if self.is_firing == true and self.weapon.state.can_fire then
+    if self.is_firing == true and self.weapon.state.can_fire() then
         self.weapon:fire()
     end
 end

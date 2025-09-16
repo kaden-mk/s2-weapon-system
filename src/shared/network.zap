@@ -23,3 +23,15 @@ funct CreateWeapon = {
     args: ( name: string.binary ),
     rets: enum { success, fail }
 }
+
+funct EquipWeapon = {  
+    call: Async,
+    args: ( name: string.binary ),
+    rets: enum { success, fail }
+}
+
+event FireWeapon = {
+    from: Client,
+    type: Unreliable,
+    call: ManyAsync
+}

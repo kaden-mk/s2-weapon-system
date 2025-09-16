@@ -1,3 +1,4 @@
+local ExperienceStateRecordingService = game:GetService("ExperienceStateRecordingService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
@@ -20,6 +21,7 @@ local function createWeaponState()
         enabled = Charm.atom(true),
         can_fire = Charm.atom(true),
         equipped = Charm.atom(false),
+        ammo_count = Charm.atom(0)
     } :: typeof(atoms.weapon_data)
 end
 
@@ -33,15 +35,46 @@ function Weapon.new(name: string, player: PlayerClass.PlayerClass): Weapon | nil
     self.firerate = 1 / (self.data.RPM / 60)
 
     self.state = createWeaponState()
+    self.state.ammo_count(self.data.Ammo.MagazineSize)
 
     return self
 end 
 
+function Weapon.equip(self: Weapon)
+    if self.state.enabled() == false then return end
+    if self.state.equipped() == true then return end 
+
+    self.state.enabled(false)
+    self.owner.equipped_weapon = self.name
+    task.delay(self.data.EquipTime, function()
+        self.state.enabled(true)
+        self.state.equipped(true)
+    end)
+
+    return true
+end
+
+function Weapon.fire(self: Weapon)
+    if self.state.enabled() == false then return end 
+    if self.state.equipped() == false then return end
+    if self.state.can_fire() == false then return end
+    if self.state.ammo_count() == 0 then return end
+
+    self.state.ammo_count(function(old)
+        return old - 1
+    end)
+    self.state.can_fire(false)
+    task.delay(self.firerate, function()
+        self.state.can_fire(true)
+    end)
+end
+
 export type Weapon = typeof(Weapon) & {
-    owner: Player,
+    owner: PlayerClass.PlayerClass,
     name: string,
-    data: { any },
+    data: { [string]: any },
     firerate: number,
+    state: typeof(atoms.weapon_data)
 }
 
 return Weapon :: Weapon

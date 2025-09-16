@@ -79,11 +79,7 @@ function Weapons.equip(self: Weapon)
     if self.state.enabled() == false then return end
     if self.state.equipped() == true then return end
 
-    self.state.enabled(false)
-    task.delay(self.data.EquipTime, function()
-        self.state.enabled(true)
-        self.state.equipped(true)
-    end)
+    if Network.EquipWeapon.Call(self.name) == "fail" then return end
 
     self.model.Parent = self.viewmodel_controller.model
 
@@ -102,11 +98,9 @@ function Weapons.fire(self: Weapon)
     if self.state.enabled() == false then return end
     if self.state.equipped() == false then return end
     if self.state.can_fire() == false then return end
+    if self.state.ammo_count() == 0 then return end
 
-    self.state.can_fire(false)
-    task.delay(self.firerate, function()
-        self.state.can_fire(true)
-    end)
+    Network.FireWeapon.Fire()
 
     self.animations.Fire:Play()
 end
@@ -114,7 +108,7 @@ end
 export type Weapon = typeof(Weapons) & {
     name: string,
     model: Model & { Animations: Folder },
-    data: { Rig: { Viewmodel: { any }, WorldModel: { any } }, EquipTime: number, RPM: number }, -- TODO: improve ts
+    data: { [string]: any }, 
     viewmodel_controller: ViewmodelController.ViewmodelController,
     animations: { [string]: AnimationTrack },
 

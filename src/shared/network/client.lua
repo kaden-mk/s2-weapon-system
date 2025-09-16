@@ -128,6 +128,12 @@ if not RunService:IsRunning() then
 		PlayerSessionSync = table.freeze({
 			On = noop
 		}),
+		FireWeapon = table.freeze({
+			Fire = noop
+		}),
+		EquipWeapon = table.freeze({
+			Call = noop
+		}),
 		CreateWeapon = table.freeze({
 			Call = noop
 		}),
@@ -141,6 +147,8 @@ local remotes = ReplicatedStorage:WaitForChild("ZAP")
 local reliable = remotes:WaitForChild("ZAP_RELIABLE")
 assert(reliable:IsA("RemoteEvent"), "Expected ZAP_RELIABLE to be a RemoteEvent")
 
+local unreliable = { remotes:WaitForChild("ZAP_UNRELIABLE_0") }
+assert(unreliable[1]:IsA("UnreliableRemoteEvent"), "Expected ZAP_UNRELIABLE_0 to be an UnreliableRemoteEvent")
 
 local function SendEvents()
 	if outgoing_used ~= 0 then
@@ -158,13 +166,14 @@ end
 
 RunService.Heartbeat:Connect(SendEvents)
 
-local reliable_events = table.create(3)
-local reliable_event_queue: { [number]: { any } } = table.create(3)
+local reliable_events = table.create(4)
+local reliable_event_queue: { [number]: { any } } = table.create(4)
 local function_call_id = 0
 reliable_events[1] = {}
 reliable_event_queue[1] = {}
 reliable_events[0] = {}
 reliable_event_queue[0] = {}
+reliable_event_queue[3] = table.create(255)
 reliable_event_queue[2] = table.create(255)
 reliable.OnClientEvent:Connect(function(buff, inst)
 	incoming_buff = buff
@@ -234,11 +243,26 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 					warn(`[ZAP] {#reliable_event_queue[0]} events in queue for PlayerSessionSync. Did you forget to attach a listener?`)
 				end
 			end
-		elseif id == 2 then
+		elseif id == 3 then
 			local call_id = buffer.readu8(incoming_buff, read(1))
 			local value
 			local bool_5 = buffer.readu8(incoming_buff, read(1))
 			if bit32.btest(bool_5, 0b0000000000000001) then
+				value = "success"
+			else
+				value = "fail"
+			end
+			local thread = reliable_event_queue[3][call_id]
+			-- When using actors it's possible for multiple Zap clients to exist, but only one called the Zap remote function.
+			if thread then
+				task.spawn(thread, value)
+			end
+			reliable_event_queue[3][call_id] = nil
+		elseif id == 2 then
+			local call_id = buffer.readu8(incoming_buff, read(1))
+			local value
+			local bool_6 = buffer.readu8(incoming_buff, read(1))
+			if bit32.btest(bool_6, 0b0000000000000001) then
 				value = "success"
 			else
 				value = "fail"
@@ -289,6 +313,37 @@ local returns = {
 			end
 		end,
 	},
+	FireWeapon = {
+		Fire = function()
+			local saved = save()
+			load_empty()
+			local buff = buffer.create(outgoing_used)
+			buffer.copy(buff, 0, outgoing_buff, 0, outgoing_used)
+			unreliable[1]:FireServer(buff, outgoing_inst)
+			load(saved)
+		end,
+	},
+	EquipWeapon = {
+		Call = function(name: (string)): (("success" | "fail"))
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
+			function_call_id += 1
+			function_call_id %= 256
+			if reliable_event_queue[3][function_call_id] then
+				function_call_id -= 1
+				error("Zap has more than 256 calls awaiting a response, and therefore this packet has been dropped")
+			end
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, function_call_id)
+			local len_3 = #name
+			alloc(2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_3)
+			alloc(len_3)
+			buffer.writestring(outgoing_buff, outgoing_apos, name, len_3)
+			reliable_event_queue[3][function_call_id] = coroutine.running()
+			return coroutine.yield()
+		end,
+	},
 	CreateWeapon = {
 		Call = function(name: (string)): (("success" | "fail"))
 			alloc(1)
@@ -301,11 +356,11 @@ local returns = {
 			end
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, function_call_id)
-			local len_3 = #name
+			local len_4 = #name
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_3)
-			alloc(len_3)
-			buffer.writestring(outgoing_buff, outgoing_apos, name, len_3)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_4)
+			alloc(len_4)
+			buffer.writestring(outgoing_buff, outgoing_apos, name, len_4)
 			reliable_event_queue[2][function_call_id] = coroutine.running()
 			return coroutine.yield()
 		end,

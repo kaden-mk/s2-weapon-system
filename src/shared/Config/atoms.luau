@@ -13,5 +13,6 @@ return {
         equipped = Charm.atom(false),
         enabled = Charm.atom(true),
         can_fire = Charm.atom(true),
+        ammo_count = Charm.atom(0)
     }
 }

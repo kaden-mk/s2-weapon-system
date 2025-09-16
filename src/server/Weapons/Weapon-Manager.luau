@@ -55,12 +55,37 @@ function WeaponManager.onStart(self: WeaponManager)
 
         local weapon = WeaponClass.new(name, player_data)
         self:setupSyncerForState(player, weapon.state, name)
+        weapon_syncer_list[player][name]:hydrate(player)
 
         if not weapon then return "fail" end
 
         weapon_player_list[player][name] = weapon
 
         return "success"
+    end)
+
+    Network.EquipWeapon.SetCallback(function(player, name)
+        if not weapon_player_list[player] or not weapon_player_list[player][name] then return "fail" end
+
+        local player_data = self.player_service:getPlayer(player)
+        if not player_data then return "fail" end
+
+        local weapon = weapon_player_list[player][name]
+        local did_equip = weapon:equip()
+
+        if not did_equip then return "fail" end
+
+        return "success"
+    end)
+
+    Network.FireWeapon.On(function(player)
+        local player_data = self.player_service:getPlayer(player)
+        if not player_data then return end 
+
+        local equipped_weapon = player_data.equipped_weapon
+        local weapon = weapon_player_list[player][equipped_weapon]
+
+        weapon:fire()
     end)
 end
 
