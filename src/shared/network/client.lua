@@ -119,6 +119,9 @@ if not RunService:IsRunning() then
 	local noop = function() end
 	return table.freeze({
 		SendEvents = noop,
+		WeaponSessionSync = table.freeze({
+			On = noop
+		}),
 		RequestSessionState = table.freeze({
 			Fire = noop
 		}),
@@ -155,12 +158,14 @@ end
 
 RunService.Heartbeat:Connect(SendEvents)
 
-local reliable_events = table.create(2)
-local reliable_event_queue: { [number]: { any } } = table.create(2)
+local reliable_events = table.create(3)
+local reliable_event_queue: { [number]: { any } } = table.create(3)
 local function_call_id = 0
+reliable_events[1] = {}
+reliable_event_queue[1] = {}
 reliable_events[0] = {}
 reliable_event_queue[0] = {}
-reliable_event_queue[1] = table.create(255)
+reliable_event_queue[2] = table.create(255)
 reliable.OnClientEvent:Connect(function(buff, inst)
 	incoming_buff = buff
 	incoming_inst = inst
@@ -169,7 +174,7 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 	local len = buffer.len(buff)
 	while incoming_read < len do
 		local id = buffer.readu8(buff, read(1))
-		if id == 0 then
+		if id == 1 then
 			local value
 			local bool_1 = buffer.readu8(incoming_buff, read(1))
 			value = {  }
@@ -189,6 +194,36 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 					value[key_1] = val_1
 				end
 			end
+			if reliable_events[1][1] then
+				for _, cb in reliable_events[1] do
+					task.spawn(cb, value)
+				end
+			else
+				table.insert(reliable_event_queue[1], value)
+				if #reliable_event_queue[1] > 64 then
+					warn(`[ZAP] {#reliable_event_queue[1]} events in queue for WeaponSessionSync. Did you forget to attach a listener?`)
+				end
+			end
+		elseif id == 0 then
+			local value
+			local bool_3 = buffer.readu8(incoming_buff, read(1))
+			value = {  }
+			if not bit32.btest(bool_3, 0b0000000000000001) then
+				for _ = 1, buffer.readu16(incoming_buff, read(2)) + 1 do
+					local bool_4 = buffer.readu8(incoming_buff, read(1))
+					local key_2
+					local val_2
+					local len_2 = buffer.readu16(incoming_buff, read(2))
+					key_2 = buffer.readstring(incoming_buff, read(len_2), len_2)
+					if bit32.btest(bool_4, 0b0000000000000001) then
+						incoming_ipos = incoming_ipos + 1
+						val_2 = incoming_inst[incoming_ipos]
+					else
+						val_2 = nil
+					end
+					value[key_2] = val_2
+				end
+			end
 			if reliable_events[0][1] then
 				for _, cb in reliable_events[0] do
 					task.spawn(cb, value)
@@ -199,21 +234,21 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 					warn(`[ZAP] {#reliable_event_queue[0]} events in queue for PlayerSessionSync. Did you forget to attach a listener?`)
 				end
 			end
-		elseif id == 1 then
+		elseif id == 2 then
 			local call_id = buffer.readu8(incoming_buff, read(1))
 			local value
-			local bool_3 = buffer.readu8(incoming_buff, read(1))
-			if bit32.btest(bool_3, 0b0000000000000001) then
+			local bool_5 = buffer.readu8(incoming_buff, read(1))
+			if bit32.btest(bool_5, 0b0000000000000001) then
 				value = "success"
 			else
 				value = "fail"
 			end
-			local thread = reliable_event_queue[1][call_id]
+			local thread = reliable_event_queue[2][call_id]
 			-- When using actors it's possible for multiple Zap clients to exist, but only one called the Zap remote function.
 			if thread then
 				task.spawn(thread, value)
 			end
-			reliable_event_queue[1][call_id] = nil
+			reliable_event_queue[2][call_id] = nil
 		else
 			error("Unknown event id")
 		end
@@ -224,6 +259,18 @@ table.freeze(polling_queues_unreliable)
 
 local returns = {
 	SendEvents = SendEvents,
+	WeaponSessionSync = {
+		On = function(Callback: (Value: ({ [(string)]: ((unknown)) })) -> ())
+			table.insert(reliable_events[1], Callback)
+			for _, value in reliable_event_queue[1] do
+				task.spawn(Callback, value)
+			end
+			reliable_event_queue[1] = {}
+			return function()
+				table.remove(reliable_events[1], table.find(reliable_events[1], Callback))
+			end
+		end,
+	},
 	RequestSessionState = {
 		Fire = function()
 			alloc(1)
@@ -248,18 +295,18 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
 			function_call_id += 1
 			function_call_id %= 256
-			if reliable_event_queue[1][function_call_id] then
+			if reliable_event_queue[2][function_call_id] then
 				function_call_id -= 1
 				error("Zap has more than 256 calls awaiting a response, and therefore this packet has been dropped")
 			end
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, function_call_id)
-			local len_2 = #name
+			local len_3 = #name
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_2)
-			alloc(len_2)
-			buffer.writestring(outgoing_buff, outgoing_apos, name, len_2)
-			reliable_event_queue[1][function_call_id] = coroutine.running()
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_3)
+			alloc(len_3)
+			buffer.writestring(outgoing_buff, outgoing_apos, name, len_3)
+			reliable_event_queue[2][function_call_id] = coroutine.running()
 			return coroutine.yield()
 		end,
 	},

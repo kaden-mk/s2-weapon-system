@@ -1,6 +1,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 
+local CharmSync = require(ReplicatedStorage.Packages.CharmSync)
+local atoms = require(ReplicatedStorage.Shared.Config.atoms)
 local ViewmodelController = require(StarterPlayer.StarterPlayerScripts.Client.Viewmodel["Viewmodel-Controller"])
 local Object = require(ReplicatedStorage.Shared.Modules.Object)
 local Network = require(ReplicatedStorage.Shared.network.client)
@@ -27,11 +29,11 @@ function Weapons.new(name: string, viewmodel_controller: ViewmodelController.Vie
     self.animations = {}
     self.firerate = 1 / (self.data.RPM / 60)
 
-    self.state = {
-        equipped = false,
-        enabled = true,
-        can_fire = true
-    }
+    self.state = table.clone(atoms.weapon_data)
+
+    self.syncer = CharmSync.client({
+        atoms = self.state
+    })
 
     Object.setPhysics(self.model, false, false)
 
@@ -74,13 +76,13 @@ function Weapons.initializeAnimations(self: Weapon)
 end
 
 function Weapons.equip(self: Weapon)
-    if self.state.enabled == false then return end
-    if self.state.equipped == true then return end
+    if self.state.enabled() == false then return end
+    if self.state.equipped() == true then return end
 
-    self.state.enabled = false
+    self.state.enabled(false)
     task.delay(self.data.EquipTime, function()
-        self.state.enabled = true
-        self.state.equipped = true
+        self.state.enabled(true)
+        self.state.equipped(true)
     end)
 
     self.model.Parent = self.viewmodel_controller.model
@@ -90,20 +92,20 @@ function Weapons.equip(self: Weapon)
 end
 
 function Weapons.reload(self: Weapon)
-    if self.state.enabled == false then return end
-    if self.state.equipped == false then return end
+    if self.state.enabled() == false then return end
+    if self.state.equipped() == false then return end
 
     self.animations.TacticalReload:Play()
 end
 
 function Weapons.fire(self: Weapon)
-    if self.state.enabled == false then return end
-    if self.state.equipped == false then return end
-    if self.state.can_fire == false then return end
+    if self.state.enabled() == false then return end
+    if self.state.equipped() == false then return end
+    if self.state.can_fire() == false then return end
 
-    self.state.can_fire = false
+    self.state.can_fire(false)
     task.delay(self.firerate, function()
-        self.state.can_fire = true
+        self.state.can_fire(true)
     end)
 
     self.animations.Fire:Play()
@@ -116,11 +118,8 @@ export type Weapon = typeof(Weapons) & {
     viewmodel_controller: ViewmodelController.ViewmodelController,
     animations: { [string]: AnimationTrack },
 
-    state: {
-        enabled: boolean,
-        equipped: boolean,
-        can_fire: boolean
-    },
+    state: typeof(atoms.weapon_data),
+    syncer: any,
 
     firerate: number
 }

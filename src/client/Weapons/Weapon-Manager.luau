@@ -4,6 +4,7 @@ local StarterPlayer = game:GetService("StarterPlayer")
 local Input = require(StarterPlayer.StarterPlayerScripts.Client.Modules.Input)
 local World = require(ReplicatedStorage.Shared.World)
 local WeaponClass = require(script.Parent["Weapon-Class"])
+local Network = require(ReplicatedStorage.Shared.network.client)
 
 local ViewmodelType = require(script.Parent.Parent.Viewmodel["Viewmodel-Controller"])
 local PlayerType = require(script.Parent.Parent.Player["Player-Controller"])
@@ -19,6 +20,10 @@ function WeaponManager.constructor(self: WeaponManager)
 
     self.weapon = WeaponClass.new(self.player_controller.replicated_player_state.weapons().primary(), self.viewmodel_controller) :: WeaponClass.Weapon
     self.is_firing = false
+
+    Network.WeaponSessionSync.On(function(payload)
+        self.weapon.syncer:sync(payload)
+    end)
 end
 
 function WeaponManager.onStart(self: WeaponManager)

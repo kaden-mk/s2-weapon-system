@@ -1,6 +1,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
+local Charm = require(ReplicatedStorage.Packages.Charm)
+local atoms = require(ReplicatedStorage.Shared.Config.atoms)
 local PlayerClass = require(ServerScriptService.Server.Players["Player-Class"])
 
 local WeaponConfigsList = {}
@@ -13,6 +15,14 @@ end
 local Weapon = {}
 Weapon.__index = Weapon
 
+local function createWeaponState()
+    return {
+        enabled = Charm.atom(true),
+        can_fire = Charm.atom(true),
+        equipped = Charm.atom(false),
+    } :: typeof(atoms.weapon_data)
+end
+
 function Weapon.new(name: string, player: PlayerClass.PlayerClass): Weapon | nil
     if not WeaponConfigsList[name] then return end
 
@@ -21,6 +31,8 @@ function Weapon.new(name: string, player: PlayerClass.PlayerClass): Weapon | nil
     self.name = name
     self.data = WeaponConfigsList[name]
     self.firerate = 1 / (self.data.RPM / 60)
+
+    self.state = createWeaponState()
 
     return self
 end 

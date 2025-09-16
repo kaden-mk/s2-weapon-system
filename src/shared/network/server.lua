@@ -119,6 +119,13 @@ if not RunService:IsRunning() then
 	local noop = function() end
 	return table.freeze({
 		SendEvents = noop,
+		WeaponSessionSync = table.freeze({
+			Fire = noop,
+			FireAll = noop,
+			FireExcept = noop,
+			FireList = noop,
+			FireSet = noop
+		}),
 		RequestSessionState = table.freeze({
 			On = noop
 		}),
@@ -211,7 +218,7 @@ reliable.OnServerEvent:Connect(function(player, buff, inst)
 					local ret_1 = reliable_events[1](player_2, value_1)
 					load_player(player_2)
 					alloc(1)
-					buffer.writeu8(outgoing_buff, outgoing_apos, 1)
+					buffer.writeu8(outgoing_buff, outgoing_apos, 2)
 					alloc(1)
 					buffer.writeu8(outgoing_buff, outgoing_apos, call_id_2)
 					local bool_1 = 0
@@ -237,19 +244,11 @@ table.freeze(polling_queues_unreliable)
 
 local returns = {
 	SendEvents = SendEvents,
-	RequestSessionState = {
-		On = function(Callback: (Player: Player) -> ()): () -> ()
-			table.insert(reliable_events[0], Callback)
-			return function()
-				table.remove(reliable_events[0], table.find(reliable_events[0], Callback))
-			end
-		end,
-	},
-	PlayerSessionSync = {
+	WeaponSessionSync = {
 		Fire = function(Player: Player, Value: ({ [(string)]: ((unknown)) }))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
 			local bool_2 = 0
 			local bool_2_pos_1 = alloc(1)
 			local len_pos_1
@@ -283,7 +282,7 @@ local returns = {
 		FireAll = function(Value: ({ [(string)]: ((unknown)) }))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
 			local bool_4 = 0
 			local bool_4_pos_1 = alloc(1)
 			local len_pos_2
@@ -324,7 +323,7 @@ local returns = {
 		FireExcept = function(Except: Player, Value: ({ [(string)]: ((unknown)) }))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
 			local bool_6 = 0
 			local bool_6_pos_1 = alloc(1)
 			local len_pos_3
@@ -367,7 +366,7 @@ local returns = {
 		FireList = function(List: { [unknown]: Player }, Value: ({ [(string)]: ((unknown)) }))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
 			local bool_8 = 0
 			local bool_8_pos_1 = alloc(1)
 			local len_pos_4
@@ -408,7 +407,7 @@ local returns = {
 		FireSet = function(Set: { [Player]: any }, Value: ({ [(string)]: ((unknown)) }))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
 			local bool_10 = 0
 			local bool_10_pos_1 = alloc(1)
 			local len_pos_5
@@ -437,6 +436,216 @@ local returns = {
 				bool_10 = bit32.bor(bool_10, 0b0000000000000001)
 			end
 			buffer.writeu8(outgoing_buff, bool_10_pos_1, bool_10)
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for player in Set do
+				load_player(player)
+				alloc(used)
+				buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+				table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+				player_map[player] = save()
+			end
+		end,
+	},
+	RequestSessionState = {
+		On = function(Callback: (Player: Player) -> ()): () -> ()
+			table.insert(reliable_events[0], Callback)
+			return function()
+				table.remove(reliable_events[0], table.find(reliable_events[0], Callback))
+			end
+		end,
+	},
+	PlayerSessionSync = {
+		Fire = function(Player: Player, Value: ({ [(string)]: ((unknown)) }))
+			load_player(Player)
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			local bool_12 = 0
+			local bool_12_pos_1 = alloc(1)
+			local len_pos_6
+			local len_12 = 0
+			for k_6, v_6 in Value do
+				if len_12 == 0 then
+					len_pos_6 = alloc(2)
+				end
+				local bool_13 = 0
+				local bool_13_pos_1 = alloc(1)
+				len_12 = len_12 + 1
+				local len_13 = #k_6
+				alloc(2)
+				buffer.writeu16(outgoing_buff, outgoing_apos, len_13)
+				alloc(len_13)
+				buffer.writestring(outgoing_buff, outgoing_apos, k_6, len_13)
+				if v_6 ~= nil then
+					bool_13 = bit32.bor(bool_13, 0b0000000000000001)
+					table.insert(outgoing_inst, v_6)
+				end
+				buffer.writeu8(outgoing_buff, bool_13_pos_1, bool_13)
+			end
+			if len_pos_6 then
+				buffer.writeu16(outgoing_buff, len_pos_6, len_12 - 1)
+			else
+				bool_12 = bit32.bor(bool_12, 0b0000000000000001)
+			end
+			buffer.writeu8(outgoing_buff, bool_12_pos_1, bool_12)
+			player_map[Player] = save()
+		end,
+		FireAll = function(Value: ({ [(string)]: ((unknown)) }))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			local bool_14 = 0
+			local bool_14_pos_1 = alloc(1)
+			local len_pos_7
+			local len_14 = 0
+			for k_7, v_7 in Value do
+				if len_14 == 0 then
+					len_pos_7 = alloc(2)
+				end
+				local bool_15 = 0
+				local bool_15_pos_1 = alloc(1)
+				len_14 = len_14 + 1
+				local len_15 = #k_7
+				alloc(2)
+				buffer.writeu16(outgoing_buff, outgoing_apos, len_15)
+				alloc(len_15)
+				buffer.writestring(outgoing_buff, outgoing_apos, k_7, len_15)
+				if v_7 ~= nil then
+					bool_15 = bit32.bor(bool_15, 0b0000000000000001)
+					table.insert(outgoing_inst, v_7)
+				end
+				buffer.writeu8(outgoing_buff, bool_15_pos_1, bool_15)
+			end
+			if len_pos_7 then
+				buffer.writeu16(outgoing_buff, len_pos_7, len_14 - 1)
+			else
+				bool_14 = bit32.bor(bool_14, 0b0000000000000001)
+			end
+			buffer.writeu8(outgoing_buff, bool_14_pos_1, bool_14)
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for _, player in Players:GetPlayers() do
+				load_player(player)
+				alloc(used)
+				buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+				table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+				player_map[player] = save()
+			end
+		end,
+		FireExcept = function(Except: Player, Value: ({ [(string)]: ((unknown)) }))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			local bool_16 = 0
+			local bool_16_pos_1 = alloc(1)
+			local len_pos_8
+			local len_16 = 0
+			for k_8, v_8 in Value do
+				if len_16 == 0 then
+					len_pos_8 = alloc(2)
+				end
+				local bool_17 = 0
+				local bool_17_pos_1 = alloc(1)
+				len_16 = len_16 + 1
+				local len_17 = #k_8
+				alloc(2)
+				buffer.writeu16(outgoing_buff, outgoing_apos, len_17)
+				alloc(len_17)
+				buffer.writestring(outgoing_buff, outgoing_apos, k_8, len_17)
+				if v_8 ~= nil then
+					bool_17 = bit32.bor(bool_17, 0b0000000000000001)
+					table.insert(outgoing_inst, v_8)
+				end
+				buffer.writeu8(outgoing_buff, bool_17_pos_1, bool_17)
+			end
+			if len_pos_8 then
+				buffer.writeu16(outgoing_buff, len_pos_8, len_16 - 1)
+			else
+				bool_16 = bit32.bor(bool_16, 0b0000000000000001)
+			end
+			buffer.writeu8(outgoing_buff, bool_16_pos_1, bool_16)
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for _, player in Players:GetPlayers() do
+				if player ~= Except then
+					load_player(player)
+					alloc(used)
+					buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+					table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+					player_map[player] = save()
+				end
+			end
+		end,
+		FireList = function(List: { [unknown]: Player }, Value: ({ [(string)]: ((unknown)) }))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			local bool_18 = 0
+			local bool_18_pos_1 = alloc(1)
+			local len_pos_9
+			local len_18 = 0
+			for k_9, v_9 in Value do
+				if len_18 == 0 then
+					len_pos_9 = alloc(2)
+				end
+				local bool_19 = 0
+				local bool_19_pos_1 = alloc(1)
+				len_18 = len_18 + 1
+				local len_19 = #k_9
+				alloc(2)
+				buffer.writeu16(outgoing_buff, outgoing_apos, len_19)
+				alloc(len_19)
+				buffer.writestring(outgoing_buff, outgoing_apos, k_9, len_19)
+				if v_9 ~= nil then
+					bool_19 = bit32.bor(bool_19, 0b0000000000000001)
+					table.insert(outgoing_inst, v_9)
+				end
+				buffer.writeu8(outgoing_buff, bool_19_pos_1, bool_19)
+			end
+			if len_pos_9 then
+				buffer.writeu16(outgoing_buff, len_pos_9, len_18 - 1)
+			else
+				bool_18 = bit32.bor(bool_18, 0b0000000000000001)
+			end
+			buffer.writeu8(outgoing_buff, bool_18_pos_1, bool_18)
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for _, player in List do
+				load_player(player)
+				alloc(used)
+				buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+				table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+				player_map[player] = save()
+			end
+		end,
+		FireSet = function(Set: { [Player]: any }, Value: ({ [(string)]: ((unknown)) }))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			local bool_20 = 0
+			local bool_20_pos_1 = alloc(1)
+			local len_pos_10
+			local len_20 = 0
+			for k_10, v_10 in Value do
+				if len_20 == 0 then
+					len_pos_10 = alloc(2)
+				end
+				local bool_21 = 0
+				local bool_21_pos_1 = alloc(1)
+				len_20 = len_20 + 1
+				local len_21 = #k_10
+				alloc(2)
+				buffer.writeu16(outgoing_buff, outgoing_apos, len_21)
+				alloc(len_21)
+				buffer.writestring(outgoing_buff, outgoing_apos, k_10, len_21)
+				if v_10 ~= nil then
+					bool_21 = bit32.bor(bool_21, 0b0000000000000001)
+					table.insert(outgoing_inst, v_10)
+				end
+				buffer.writeu8(outgoing_buff, bool_21_pos_1, bool_21)
+			end
+			if len_pos_10 then
+				buffer.writeu16(outgoing_buff, len_pos_10, len_20 - 1)
+			else
+				bool_20 = bit32.bor(bool_20, 0b0000000000000001)
+			end
+			buffer.writeu8(outgoing_buff, bool_20_pos_1, bool_20)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for player in Set do
 				load_player(player)

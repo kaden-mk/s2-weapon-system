@@ -2,19 +2,39 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
+local StarterPlayer = game:GetService("StarterPlayer")
 
+local CharmSync = require(ReplicatedStorage.Packages.CharmSync)
+local atoms = require(ReplicatedStorage.Shared.Config.atoms)
 local PlayerService = require(ServerScriptService.Server.Players["Player-Service"])
 local WeaponClass = require(script.Parent["Weapon-Class"])
 local World = require(ReplicatedStorage.Shared.World)
 local Network = require(ReplicatedStorage.Shared.network.server)
 
 local weapon_player_list = {}
+local weapon_syncer_list = {}
 
 local WeaponManager = { name = "WeaponService" }
 WeaponManager.__index = WeaponManager
 
 function WeaponManager.constructor(self: WeaponManager)
     self.player_service = World.import("PlayerService")
+end
+
+function WeaponManager.setupSyncerForState(self: WeaponManager, player: Player, state: typeof(atoms.weapon_data), name: string)
+    local syncer = CharmSync.server({
+        atoms = state
+    })
+
+    if not weapon_syncer_list[player] then
+        weapon_syncer_list[player] = {}
+    end
+
+    weapon_syncer_list[player][name] = syncer
+
+    syncer:connect(function(_, payload)
+        Network.WeaponSessionSync.Fire(player, payload)
+    end)
 end
 
 function WeaponManager.onStart(self: WeaponManager)
@@ -34,6 +54,7 @@ function WeaponManager.onStart(self: WeaponManager)
         if weapons.primary() ~= name and weapons.secondary() ~= name then return "fail" end
 
         local weapon = WeaponClass.new(name, player_data)
+        self:setupSyncerForState(player, weapon.state, name)
 
         if not weapon then return "fail" end
 
