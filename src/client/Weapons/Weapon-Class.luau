@@ -53,6 +53,16 @@ function Weapons.new(name: string, viewmodel_controller: ViewmodelController.Vie
     return self
 end
 
+function Weapons.playAnimation(self: Weapon, name: string)
+    if not self.animations[name] then return end
+
+    self.animations[name]:Play()
+
+    if name ~= "Inspect" and self.animations.Inspect.IsPlaying == true then
+        self.animations.Inspect:Stop()
+    end
+end
+
 function Weapons.initializeRig(self: Weapon)
     for _, rigData in self.data.Rig.Viewmodel do
         local prefix0, name0 = string.match(rigData.Part0, "([^/]+)/(.+)")
@@ -92,8 +102,8 @@ function Weapons.equip(self: Weapon)
 
     self.model.Parent = self.viewmodel_controller.model
 
-    self.animations.Idle:Play()
-    self.animations.Equip:Play()
+    self:playAnimation("Equip")
+    self:playAnimation("Idle")
 end
 
 function Weapons.reload(self: Weapon)
@@ -104,7 +114,7 @@ function Weapons.reload(self: Weapon)
     local reload_empty = self.state.ammo_count() <= 0
     local animation = reload_empty and "EmptyReload" or "TacticalReload"
 
-    self.animations[animation]:Play()
+    self:playAnimation(animation)
 end
 
 function Weapons.fire(self: Weapon)
@@ -112,7 +122,17 @@ function Weapons.fire(self: Weapon)
 
     Network.FireWeapon.Fire()
 
-    self.animations.Fire:Play()
+    self:playAnimation("Fire")
+
+    task.wait(0.1)
+    if self.state.ammo_count() <= 0 then
+        self:reload()
+    end
+end
+
+function Weapons.inspect(self: Weapon)
+    self.animations.Inspect.Looped = false -- too lazy to do this manually in studio
+    self:playAnimation("Inspect")
 end
 
 export type Weapon = typeof(Weapons) & {

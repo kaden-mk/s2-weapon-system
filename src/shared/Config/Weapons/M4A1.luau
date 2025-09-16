@@ -26,7 +26,7 @@ return {
     
     Ammo = {
         MagazineSize = 30,
-        MaxMagazineCount = 5,
+        MaxMagazineCount = 7,
         Type = "5.56x45mm"
     },
 

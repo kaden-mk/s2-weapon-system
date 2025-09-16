@@ -31,7 +31,6 @@ local function canReload(state: typeof(atoms.weapon_data))
     if state.ammo_held() == 0 then return false end
     if state.enabled() == false then return false end
     if state.equipped() == false then return false end
-    if state.can_fire() == false then return false end -- assuming that the user is firing the weapon
     if state.reloading() == true then return false end
 
     return true

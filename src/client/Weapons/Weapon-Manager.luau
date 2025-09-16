@@ -35,6 +35,8 @@ function WeaponManager.onStart(self: WeaponManager)
     self.equipped_weapon:equip()
 
     Input.bind("Weapon", "Reload", Enum.KeyCode.R, function()
+        if self.is_firing then return end
+
         self.equipped_weapon:reload()
     end, false)
 
@@ -44,6 +46,10 @@ function WeaponManager.onStart(self: WeaponManager)
             self.equipped_weapon:fire()
         end
     end, true)
+
+    Input.bind("Weapon", "Inspect", Enum.KeyCode.F, function()
+        self.equipped_weapon:inspect()
+    end, false)
 end
 
 function WeaponManager.onRender(self: WeaponManager)
