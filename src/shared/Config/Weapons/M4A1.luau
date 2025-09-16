@@ -34,5 +34,7 @@ return {
     Firemodes = { "Auto", "Semi" },
 
     EquipTime = 1,
-    UnequipTime = 1
+    UnequipTime = 1,
+    ReloadTime = 1.5,
+    ReloadEmptyTime = 2
 }

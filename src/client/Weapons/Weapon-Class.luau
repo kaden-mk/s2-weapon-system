@@ -1,10 +1,13 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 
+local Charm = require(ReplicatedStorage.Packages.Charm)
+local Interface = require(StarterPlayer.StarterPlayerScripts.Client.Modules.Interface)
 local CharmSync = require(ReplicatedStorage.Packages.CharmSync)
 local atoms = require(ReplicatedStorage.Shared.Config.atoms)
 local ViewmodelController = require(StarterPlayer.StarterPlayerScripts.Client.Viewmodel["Viewmodel-Controller"])
 local Object = require(ReplicatedStorage.Shared.Modules.Object)
+local WeaponChecks = require(ReplicatedStorage.Shared.Modules.WeaponChecks)
 local Network = require(ReplicatedStorage.Shared.network.client)
 
 local WeaponConfigsList = {}
@@ -27,7 +30,6 @@ function Weapons.new(name: string, viewmodel_controller: ViewmodelController.Vie
     self.data = WeaponConfigsList[name]
     self.viewmodel_controller = viewmodel_controller
     self.animations = {}
-    self.firerate = 1 / (self.data.RPM / 60)
 
     self.state = table.clone(atoms.weapon_data)
 
@@ -39,6 +41,14 @@ function Weapons.new(name: string, viewmodel_controller: ViewmodelController.Vie
 
     self:initializeRig()
     self:initializeAnimations()
+
+    Charm.subscribe(self.state.ammo_count, function(state)
+        Interface.updateAmmo(state, self.state.ammo_held())
+    end)
+
+    Charm.subscribe(self.state.ammo_held, function(state)
+        Interface.updateAmmo(self.state.ammo_count(), state)
+    end)
 
     return self
 end
@@ -60,6 +70,7 @@ function Weapons.initializeAnimations(self: Weapon)
     local priorities = {
         Fire = Enum.AnimationPriority.Action,
         TacticalReload = Enum.AnimationPriority.Action,
+        EmptyReload = Enum.AnimationPriority.Action,
         Idle = Enum.AnimationPriority.Idle,
         Equip = Enum.AnimationPriority.Core
     }
@@ -76,9 +87,7 @@ function Weapons.initializeAnimations(self: Weapon)
 end
 
 function Weapons.equip(self: Weapon)
-    if self.state.enabled() == false then return end
-    if self.state.equipped() == true then return end
-
+    if WeaponChecks.canEquip(self.state) == false then return end
     if Network.EquipWeapon.Call(self.name) == "fail" then return end
 
     self.model.Parent = self.viewmodel_controller.model
@@ -88,17 +97,18 @@ function Weapons.equip(self: Weapon)
 end
 
 function Weapons.reload(self: Weapon)
-    if self.state.enabled() == false then return end
-    if self.state.equipped() == false then return end
+    if WeaponChecks.canReload(self.state) == false then return end
 
-    self.animations.TacticalReload:Play()
+    Network.ReloadWeapon.Fire()
+
+    local reload_empty = self.state.ammo_count() <= 0
+    local animation = reload_empty and "EmptyReload" or "TacticalReload"
+
+    self.animations[animation]:Play()
 end
 
 function Weapons.fire(self: Weapon)
-    if self.state.enabled() == false then return end
-    if self.state.equipped() == false then return end
-    if self.state.can_fire() == false then return end
-    if self.state.ammo_count() == 0 then return end
+    if WeaponChecks.canFire(self.state) == false then return end
 
     Network.FireWeapon.Fire()
 
@@ -113,9 +123,7 @@ export type Weapon = typeof(Weapons) & {
     animations: { [string]: AnimationTrack },
 
     state: typeof(atoms.weapon_data),
-    syncer: any,
-
-    firerate: number
+    syncer: any
 }
 
 return Weapons :: Weapon

@@ -33,7 +33,7 @@ function WeaponManager.setupSyncerForState(self: WeaponManager, player: Player, 
     weapon_syncer_list[player][name] = syncer
 
     syncer:connect(function(_, payload)
-        Network.WeaponSessionSync.Fire(player, payload)
+        Network.WeaponSessionSync.Fire(player, { name = name, payload = payload })
     end)
 end
 
@@ -86,6 +86,16 @@ function WeaponManager.onStart(self: WeaponManager)
         local weapon = weapon_player_list[player][equipped_weapon]
 
         weapon:fire()
+    end)
+
+    Network.ReloadWeapon.On(function(player)
+        local player_data = self.player_service:getPlayer(player)
+        if not player_data then return end 
+
+        local equipped_weapon = player_data.equipped_weapon
+        local weapon = weapon_player_list[player][equipped_weapon]
+
+        weapon:reload()
     end)
 end
 

@@ -125,6 +125,9 @@ if not RunService:IsRunning() then
 		RequestSessionState = table.freeze({
 			Fire = noop
 		}),
+		ReloadWeapon = table.freeze({
+			Fire = noop
+		}),
 		PlayerSessionSync = table.freeze({
 			On = noop
 		}),
@@ -147,8 +150,9 @@ local remotes = ReplicatedStorage:WaitForChild("ZAP")
 local reliable = remotes:WaitForChild("ZAP_RELIABLE")
 assert(reliable:IsA("RemoteEvent"), "Expected ZAP_RELIABLE to be a RemoteEvent")
 
-local unreliable = { remotes:WaitForChild("ZAP_UNRELIABLE_0") }
+local unreliable = { remotes:WaitForChild("ZAP_UNRELIABLE_0"), remotes:WaitForChild("ZAP_UNRELIABLE_1") }
 assert(unreliable[1]:IsA("UnreliableRemoteEvent"), "Expected ZAP_UNRELIABLE_0 to be an UnreliableRemoteEvent")
+assert(unreliable[2]:IsA("UnreliableRemoteEvent"), "Expected ZAP_UNRELIABLE_1 to be an UnreliableRemoteEvent")
 
 local function SendEvents()
 	if outgoing_used ~= 0 then
@@ -187,20 +191,23 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 			local value
 			local bool_1 = buffer.readu8(incoming_buff, read(1))
 			value = {  }
+			local len_1 = buffer.readu16(incoming_buff, read(2))
+			value["name"] = buffer.readstring(incoming_buff, read(len_1), len_1)
+			value["payload"] = {  }
 			if not bit32.btest(bool_1, 0b0000000000000001) then
 				for _ = 1, buffer.readu16(incoming_buff, read(2)) + 1 do
 					local bool_2 = buffer.readu8(incoming_buff, read(1))
 					local key_1
 					local val_1
-					local len_1 = buffer.readu16(incoming_buff, read(2))
-					key_1 = buffer.readstring(incoming_buff, read(len_1), len_1)
+					local len_2 = buffer.readu16(incoming_buff, read(2))
+					key_1 = buffer.readstring(incoming_buff, read(len_2), len_2)
 					if bit32.btest(bool_2, 0b0000000000000001) then
 						incoming_ipos = incoming_ipos + 1
 						val_1 = incoming_inst[incoming_ipos]
 					else
 						val_1 = nil
 					end
-					value[key_1] = val_1
+					value["payload"][key_1] = val_1
 				end
 			end
 			if reliable_events[1][1] then
@@ -222,8 +229,8 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 					local bool_4 = buffer.readu8(incoming_buff, read(1))
 					local key_2
 					local val_2
-					local len_2 = buffer.readu16(incoming_buff, read(2))
-					key_2 = buffer.readstring(incoming_buff, read(len_2), len_2)
+					local len_3 = buffer.readu16(incoming_buff, read(2))
+					key_2 = buffer.readstring(incoming_buff, read(len_3), len_3)
 					if bit32.btest(bool_4, 0b0000000000000001) then
 						incoming_ipos = incoming_ipos + 1
 						val_2 = incoming_inst[incoming_ipos]
@@ -284,7 +291,10 @@ table.freeze(polling_queues_unreliable)
 local returns = {
 	SendEvents = SendEvents,
 	WeaponSessionSync = {
-		On = function(Callback: (Value: ({ [(string)]: ((unknown)) })) -> ())
+		On = function(Callback: (Value: ({
+			["name"]: (string),
+			["payload"]: ({ [(string)]: ((unknown)) }),
+		})) -> ())
 			table.insert(reliable_events[1], Callback)
 			for _, value in reliable_event_queue[1] do
 				task.spawn(Callback, value)
@@ -299,6 +309,16 @@ local returns = {
 		Fire = function()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+		end,
+	},
+	ReloadWeapon = {
+		Fire = function()
+			local saved = save()
+			load_empty()
+			local buff = buffer.create(outgoing_used)
+			buffer.copy(buff, 0, outgoing_buff, 0, outgoing_used)
+			unreliable[2]:FireServer(buff, outgoing_inst)
+			load(saved)
 		end,
 	},
 	PlayerSessionSync = {
@@ -335,11 +355,11 @@ local returns = {
 			end
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, function_call_id)
-			local len_3 = #name
+			local len_4 = #name
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_3)
-			alloc(len_3)
-			buffer.writestring(outgoing_buff, outgoing_apos, name, len_3)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_4)
+			alloc(len_4)
+			buffer.writestring(outgoing_buff, outgoing_apos, name, len_4)
 			reliable_event_queue[3][function_call_id] = coroutine.running()
 			return coroutine.yield()
 		end,
@@ -356,11 +376,11 @@ local returns = {
 			end
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, function_call_id)
-			local len_4 = #name
+			local len_5 = #name
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_4)
-			alloc(len_4)
-			buffer.writestring(outgoing_buff, outgoing_apos, name, len_4)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_5)
+			alloc(len_5)
+			buffer.writestring(outgoing_buff, outgoing_apos, name, len_5)
 			reliable_event_queue[2][function_call_id] = coroutine.running()
 			return coroutine.yield()
 		end,

@@ -18,37 +18,43 @@ function WeaponManager.constructor(self: WeaponManager)
     self.viewmodel_controller = World.import("ViewmodelController") :: ViewmodelType.ViewmodelController
     self.player_controller = World.import("PlayerController")
 
-    self.weapon = WeaponClass.new(self.player_controller.replicated_player_state.weapons().primary(), self.viewmodel_controller) :: WeaponClass.Weapon
+    local primary = self.player_controller.replicated_player_state.weapons().primary()
+
+    self.weapons = {
+        [primary] = WeaponClass.new(primary, self.viewmodel_controller) :: WeaponClass.Weapon
+    }
+    self.equipped_weapon = self.weapons[primary]
     self.is_firing = false
 
-    Network.WeaponSessionSync.On(function(payload)
-        self.weapon.syncer:sync(payload)
+    Network.WeaponSessionSync.On(function(data)
+        self.weapons[data.name].syncer:sync(data.payload)
     end)
 end
 
 function WeaponManager.onStart(self: WeaponManager)
-    self.weapon:equip()
+    self.equipped_weapon:equip()
 
     Input.bind("Weapon", "Reload", Enum.KeyCode.R, function()
-        self.weapon:reload()
+        self.equipped_weapon:reload()
     end, false)
 
     Input.bind("Weapon", "Fire", Enum.UserInputType.MouseButton1, function(_, ended) -- TODO: add support for semi autos
         self.is_firing = not ended
         if ended == false then
-            self.weapon:fire()
+            self.equipped_weapon:fire()
         end
     end, true)
 end
 
 function WeaponManager.onRender(self: WeaponManager)
-    if self.is_firing == true and self.weapon.state.can_fire() then
-        self.weapon:fire()
+    if self.is_firing == true and self.equipped_weapon.state.can_fire() then
+        self.equipped_weapon:fire()
     end
 end
 
 export type WeaponManager = typeof(WeaponManager) & {
-    weapon: WeaponClass.Weapon,
+    weapons: { [string]: WeaponClass.Weapon },
+    equipped_weapon: WeaponClass.Weapon,
     viewmodel_controller: ViewmodelType.ViewmodelController,
     player_controller: PlayerType.PlayerController,
 

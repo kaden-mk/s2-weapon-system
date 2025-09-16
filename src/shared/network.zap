@@ -15,7 +15,10 @@ event WeaponSessionSync = {
     from: Server,
     type: Reliable,
     call: ManyAsync,
-    data: map { [string.binary]: unknown }
+    data: struct {
+        name: string.binary,
+        payload: map { [string.binary]: unknown }
+    }
 }
 
 funct CreateWeapon = {
@@ -31,6 +34,12 @@ funct EquipWeapon = {
 }
 
 event FireWeapon = {
+    from: Client,
+    type: Unreliable,
+    call: ManyAsync
+}
+
+event ReloadWeapon = {
     from: Client,
     type: Unreliable,
     call: ManyAsync
