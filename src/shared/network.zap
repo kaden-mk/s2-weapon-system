@@ -35,8 +35,17 @@ funct EquipWeapon = {
 
 event FireWeapon = {
     from: Client,
-    type: Unreliable,
-    call: ManyAsync
+    type: Reliable,
+    call: ManyAsync,
+    data: struct {
+        unit: struct {
+            Origin: Vector3,
+            Direction: Vector3,
+            Unit: unknown
+        },
+
+        fire_point: Vector3
+    }
 }
 
 event ReloadWeapon = {

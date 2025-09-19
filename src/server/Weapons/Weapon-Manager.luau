@@ -78,14 +78,14 @@ function WeaponManager.onStart(self: WeaponManager)
         return "success"
     end)
 
-    Network.FireWeapon.On(function(player)
+    Network.FireWeapon.On(function(player, data)
         local player_data = self.player_service:getPlayer(player)
         if not player_data then return end 
 
         local equipped_weapon = player_data.equipped_weapon
         local weapon = weapon_player_list[player][equipped_weapon]
 
-        weapon:fire()
+        weapon:fire(data.unit :: Ray, data.fire_point)
     end)
 
     Network.ReloadWeapon.On(function(player)

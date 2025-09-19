@@ -2,6 +2,7 @@ local ExperienceStateRecordingService = game:GetService("ExperienceStateRecordin
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
+local Caster = require(ServerScriptService.Server.Modules.Caster)
 local Charm = require(ReplicatedStorage.Packages.Charm)
 local atoms = require(ReplicatedStorage.Shared.Config.atoms)
 local WeaponChecks = require(ReplicatedStorage.Shared.Modules.WeaponChecks)
@@ -57,25 +58,48 @@ function Weapon.equip(self: Weapon)
     return true
 end
 
-function Weapon.fire(self: Weapon)
+function Weapon.fire(self: Weapon, unit_ray: Ray, fire_point: Vector3)
     if WeaponChecks.canFire(self.state) == false then return end
 
     self.state.ammo_count(function(old)
         return old - 1
     end)
+
     self.state.can_fire(false)
     task.delay(self.firerate, function()
         self.state.can_fire(true)
     end)
+
+    -- basic raycast test
+    local params = RaycastParams.new() -- this shouldnt be created here due to lag
+    params.FilterDescendantsInstances = { self.owner.player.Character }
+    params.FilterType = Enum.RaycastFilterType.Exclude
+
+    local distance = 500
+    local direction = (unit_ray.Direction.Unit * distance)
+
+    local result = workspace:Raycast(fire_point, direction, params)
+    local endPoint = result and result.Position or (fire_point + direction)
+
+    local part = Instance.new("Part")
+    part.Anchored = true
+    part.CanCollide = false
+    part.Material = Enum.Material.Neon
+    part.Color = Color3.fromRGB(255, 0, 0)
+    part.Size = Vector3.new(0.1, 0.1, (endPoint - fire_point).Magnitude)
+    part.CFrame = CFrame.new(fire_point, endPoint) * CFrame.new(0, 0, -part.Size.Z/2)
+    part.Parent = workspace
+
+    --game:GetService("Debris"):AddItem(part, 0.1)
 end
 
 function Weapon.reload(self: Weapon)
     if WeaponChecks.canReload(self.state) == false then return end
 
+    self.state.reloading(true)
+
     local reload_empty = self.state.ammo_count() <= 0
     local time: number = reload_empty and self.data.ReloadEmptyTime or self.data.ReloadTime
-
-    self.state.reloading(true)
 
     task.delay(time, function()
         self.state.reloading(false)

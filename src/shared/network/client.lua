@@ -150,9 +150,8 @@ local remotes = ReplicatedStorage:WaitForChild("ZAP")
 local reliable = remotes:WaitForChild("ZAP_RELIABLE")
 assert(reliable:IsA("RemoteEvent"), "Expected ZAP_RELIABLE to be a RemoteEvent")
 
-local unreliable = { remotes:WaitForChild("ZAP_UNRELIABLE_0"), remotes:WaitForChild("ZAP_UNRELIABLE_1") }
+local unreliable = { remotes:WaitForChild("ZAP_UNRELIABLE_0") }
 assert(unreliable[1]:IsA("UnreliableRemoteEvent"), "Expected ZAP_UNRELIABLE_0 to be an UnreliableRemoteEvent")
-assert(unreliable[2]:IsA("UnreliableRemoteEvent"), "Expected ZAP_UNRELIABLE_1 to be an UnreliableRemoteEvent")
 
 local function SendEvents()
 	if outgoing_used ~= 0 then
@@ -317,7 +316,7 @@ local returns = {
 			load_empty()
 			local buff = buffer.create(outgoing_used)
 			buffer.copy(buff, 0, outgoing_buff, 0, outgoing_used)
-			unreliable[2]:FireServer(buff, outgoing_inst)
+			unreliable[1]:FireServer(buff, outgoing_inst)
 			load(saved)
 		end,
 	},
@@ -334,19 +333,47 @@ local returns = {
 		end,
 	},
 	FireWeapon = {
-		Fire = function()
-			local saved = save()
-			load_empty()
-			local buff = buffer.create(outgoing_used)
-			buffer.copy(buff, 0, outgoing_buff, 0, outgoing_used)
-			unreliable[1]:FireServer(buff, outgoing_inst)
-			load(saved)
+		Fire = function(Value: ({
+			["unit"]: ({
+				["Origin"]: (Vector3),
+				["Direction"]: (Vector3),
+				["Unit"]: ((unknown)),
+			}),
+			["fire_point"]: (Vector3),
+		}))
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
+			local bool_7 = 0
+			local bool_7_pos_1 = alloc(1)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, Value["unit"]["Origin"].X)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, Value["unit"]["Origin"].Y)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, Value["unit"]["Origin"].Z)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, Value["unit"]["Direction"].X)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, Value["unit"]["Direction"].Y)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, Value["unit"]["Direction"].Z)
+			if Value["unit"]["Unit"] ~= nil then
+				bool_7 = bit32.bor(bool_7, 0b0000000000000001)
+				table.insert(outgoing_inst, Value["unit"]["Unit"])
+			end
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, Value["fire_point"].X)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, Value["fire_point"].Y)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, Value["fire_point"].Z)
+			buffer.writeu8(outgoing_buff, bool_7_pos_1, bool_7)
 		end,
 	},
 	EquipWeapon = {
 		Call = function(name: (string)): (("success" | "fail"))
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
 			function_call_id += 1
 			function_call_id %= 256
 			if reliable_event_queue[3][function_call_id] then
@@ -367,7 +394,7 @@ local returns = {
 	CreateWeapon = {
 		Call = function(name: (string)): (("success" | "fail"))
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
 			function_call_id += 1
 			function_call_id %= 256
 			if reliable_event_queue[2][function_call_id] then

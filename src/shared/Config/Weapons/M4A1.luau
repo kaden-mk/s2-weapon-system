@@ -36,5 +36,7 @@ return {
     EquipTime = 1,
     UnequipTime = 1,
     ReloadTime = 1.5,
-    ReloadEmptyTime = 2
+    ReloadEmptyTime = 2,
+    MagazineDumpTime = 0,
+    MagazineDumpName = "30rnd Magazine"
 }

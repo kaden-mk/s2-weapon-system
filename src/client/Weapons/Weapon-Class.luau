@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
+local UserInputService = game:GetService("UserInputService")
 
 local Charm = require(ReplicatedStorage.Packages.Charm)
 local Interface = require(StarterPlayer.StarterPlayerScripts.Client.Modules.Interface)
@@ -104,11 +105,15 @@ function Weapons.equip(self: Weapon)
 
     self:playAnimation("Equip")
     self:playAnimation("Idle")
+
+    self.viewmodel_controller.model:ScaleTo(0.2)
 end
 
 function Weapons.reload(self: Weapon)
+    if self.state.ammo_count() >= self.data.Ammo.MagazineSize then return end
     if WeaponChecks.canReload(self.state) == false then return end
 
+    self.state.reloading(true)
     Network.ReloadWeapon.Fire()
 
     local reload_empty = self.state.ammo_count() <= 0
@@ -120,14 +125,13 @@ end
 function Weapons.fire(self: Weapon)
     if WeaponChecks.canFire(self.state) == false then return end
 
-    Network.FireWeapon.Fire()
+    local position = UserInputService:GetMouseLocation() -- TODO: make this the center of the screen due to console
+    local new_ray = workspace.CurrentCamera:ViewportPointToRay(position.X, position.Y)
+
+    self.state.can_fire(false)
+    Network.FireWeapon.Fire({ unit = new_ray, fire_point = self.model.Main.GunFirePoint.WorldPosition })
 
     self:playAnimation("Fire")
-
-    task.wait(0.1)
-    if self.state.ammo_count() <= 0 then
-        self:reload()
-    end
 end
 
 function Weapons.inspect(self: Weapon)
@@ -137,10 +141,16 @@ end
 
 export type Weapon = typeof(Weapons) & {
     name: string,
-    model: Model & { Animations: Folder },
+    model: Model & {
+        Animations: Folder,
+        Main: BasePart & {
+            GunFirePoint: Attachment
+        }
+    },
     data: { [string]: any }, 
     viewmodel_controller: ViewmodelController.ViewmodelController,
     animations: { [string]: AnimationTrack },
+    reloading: boolean,
 
     state: typeof(atoms.weapon_data),
     syncer: any

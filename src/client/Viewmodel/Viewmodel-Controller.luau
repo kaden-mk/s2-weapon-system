@@ -24,6 +24,9 @@ end
 function ViewmodelController.onStart(self: ViewmodelController)
     Object.setPhysics(self.model, false, false)
     self.model.Parent = camera
+    if self.model.PrimaryPart then
+        self.model.PrimaryPart.Anchored = true
+    end
 end
 
 function ViewmodelController.updateCamera(self: ViewmodelController)
@@ -35,8 +38,10 @@ function ViewmodelController.updateCamera(self: ViewmodelController)
 end
 
 function ViewmodelController.onRender(self: ViewmodelController)
+    if not self.model.PrimaryPart then return end
+
     self:updateCamera()
-    self.model:PivotTo(camera.CFrame)
+    self.model.PrimaryPart.CFrame = camera.CFrame
 end
 
 export type ViewmodelController = typeof(ViewmodelController) & {
